@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  shh-dev:
+    build: .
+    volumes:
+      # Mount SSH credentials for Git authentication
+      - ~/.ssh:/root/.ssh:ro
+      # Mount Git configuration
+      - ~/.gitconfig:/root/.gitconfig:ro
+    environment:
+      - NODE_ENV=development
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
