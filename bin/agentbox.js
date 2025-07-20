@@ -26,7 +26,7 @@ function checkRequirements() {
     try {
         execSync('git rev-parse --git-dir', { stdio: 'ignore' });
     } catch (error) {
-        log.error('Not in a git repository. Please run agentbox from inside a git project.');
+        log.error('Not in a git repository. Please run opencodebox from inside a git project.');
         process.exit(1);
     }
 
@@ -61,7 +61,7 @@ function getRepoInfo() {
 }
 
 function buildDockerImage() {
-    const imageName = 'agentbox';
+    const imageName = 'opencode-box';
 
     // Check if image exists
     try {
@@ -123,7 +123,7 @@ function findOpenCodeConfigs() {
 } function runContainer(repoInfo) {
     // Use timestamp to ensure unique container names for each run
     const timestamp = Date.now();
-    const containerName = `agentbox-container-${timestamp}`;
+    const containerName = `opencode-box-container-${timestamp}`;
 
     log.info('Starting container with secure credential forwarding...');
 
@@ -156,11 +156,11 @@ function findOpenCodeConfigs() {
     }
 
     // Also create a dedicated volume for OpenCode state that the developer user can write to
-    const stateVolume = `agentbox-state-${timestamp}`;
+    const stateVolume = `opencode-box-state-${timestamp}`;
     dockerArgs.push('-v', `${stateVolume}:/home/developer/.local/state`);
 
     // Add the image and command
-    dockerArgs.push('agentbox', '/app/wrapper.sh');
+    dockerArgs.push('opencode-box', '/app/wrapper.sh');
 
     try {
         log.info(`Starting OpenCode environment...`);
@@ -173,9 +173,9 @@ function findOpenCodeConfigs() {
 
         child.on('exit', (code) => {
             if (code === 0) {
-                log.success('AgentBox session completed');
+                log.success('OpenCode Box session completed');
             } else {
-                log.error(`AgentBox session ended with exit code ${code}`);
+                log.error(`OpenCode Box session ended with exit code ${code}`);
             }
 
             // Clean up the state volume
@@ -197,9 +197,9 @@ function main() {
     // Handle help and version flags
     if (process.argv.includes('--help') || process.argv.includes('-h')) {
         console.log(`
-AgentBox - A secure Docker environment for AI-assisted development with OpenCode
+OpenCode Box - A secure Docker environment for AI-assisted development with OpenCode
 
-Usage: agentbox
+Usage: opencodebox
 
 Requirements:
   - Docker installed and running
@@ -208,17 +208,17 @@ Requirements:
 
 Example:
   cd /path/to/your/git/project
-  agentbox
+  opencodebox
 `);
         return;
     }
 
     if (process.argv.includes('--version') || process.argv.includes('-v')) {
-        console.log('agentbox version 1.0.0');
+        console.log('opencodebox version 1.0.0');
         return;
     }
 
-    log.info('Starting AgentBox...');
+    log.info('Starting OpenCode Box...');
 
     // Check requirements
     checkRequirements();

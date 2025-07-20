@@ -1,24 +1,13 @@
-# AGENT BOX
+# OPENCODE BOX
 
 A secure, lightweight Docker environment for AI-assisted development with OpenCode. This NPM tool provides an isolated environment where you can clone repositories and work with OpenCode while keeping your main system secure.
 
 ## Installation
 
-Install AgentBox globally as an NPM package:
+Install OpenCode Box globally from NPM:
 
 ```bash
-# Clone the repository
-git clone git@github.com:filipesoccol/agent-box.git
-cd agent-box
-
-# Install globally
-./install.sh
-```
-
-Or install manually:
-
-```bash
-npm install -g .
+npm install -g opencode-box
 ```
 
 ## Quick Start
@@ -28,12 +17,12 @@ npm install -g .
    cd /path/to/your/git/project
    ```
 
-2. **Run AgentBox:**
+2. **Run OpenCode Box:**
    ```bash
-   agentbox
+   opencodebox
    ```
 
-That's it! AgentBox will automatically:
+That's it! OpenCode Box will automatically:
 - Build the Docker image (if not already built)
 - Copy your SSH credentials securely to the container
 - Copy OpenCode configurations from `~/.local/share/opencode` and `~/.config/opencode`
@@ -77,11 +66,11 @@ ssh-add ~/.ssh/id_rsa  # or your specific key file
 ## Usage Examples
 
 ```bash
-# Navigate to any git project and start AgentBox
+# Navigate to any git project and start OpenCode Box
 cd ~/my-projects/react-app
-agentbox
+opencodebox
 
 # Works with any git repository
 cd ~/my-projects/node-server
-agentbox
+opencodebox
 ```

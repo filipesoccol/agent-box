@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# AgentBox Installation Script
-# This script installs agentbox as a global npm package
+# OpenCode Box Installation Script
+# This script installs opencode-box as a global npm package
 
 set -e
 
@@ -28,7 +28,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-print_info "Installing AgentBox globally..."
+print_info "Installing OpenCode Box globally..."
 
 # Check if npm is available
 if ! command -v npm &> /dev/null; then
@@ -45,12 +45,12 @@ fi
 # Install the package globally
 npm install -g .
 
-print_success "AgentBox installed successfully!"
-print_info "You can now run 'agentbox' from any git repository directory."
+print_success "OpenCode Box installed successfully!"
+print_info "You can now run 'opencodebox' from any git repository directory."
 print_info ""
 print_info "Usage:"
 print_info "  cd /path/to/your/git/project"
-print_info "  agentbox"
+print_info "  opencodebox"
 print_info ""
 print_info "Make sure you have:"
 print_info "  - SSH agent running with your git credentials"

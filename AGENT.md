@@ -1,6 +1,6 @@
-# AGENT BOX
+# OPENCODE BOX
 
-I want to use some kind of Tool for terminal. It would be coded in JS, the idea is to run this code inside any project in my machine, so probably we will need NPM for this tool. Once I call the `agentbox` it should do the following:
+I want to use some kind of Tool for terminal. It would be coded in JS, the idea is to run this code inside any project in my machine, so probably we will need NPM for this tool. Once I call the `opencodebox` it should do the following:
 
 1) Build the image for the container above in case it doesn't exist
 2) Run an instance of the container
@@ -17,7 +17,7 @@ The intent is to have some properties builded in the container:
 
 How do I expect to run this tool:
 
-- Inside a github project folder I should be able to just call the `agentbox` tool and it does all the above automatically
+- Inside a github project folder I should be able to just call the `opencodebox` tool and it does all the above automatically
 
 Any additional informations regarding OpenCode ould be found in their docs:
 

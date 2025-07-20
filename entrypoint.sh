@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Entrypoint script for Agent Box container
+# Entrypoint script for OpenCode Box container
 # This script runs inside the container to clone the repository and start OpenCode
 
 set -e
@@ -28,7 +28,7 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-print_info "Agent Box container started"
+print_info "OpenCode Box container started"
 print_info "Repository URL: $REPO_URL"
 print_info "Repository Name: $REPO_NAME"
 print_info "Repository Branch: $REPO_BRANCH"
