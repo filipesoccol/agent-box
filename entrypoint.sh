@@ -94,7 +94,16 @@ else
 fi
 
 # Ensure proper ownership of copied files
-chown -R developer:developer /home/developer/.local/share/opencode /home/developer/.config/opencode 2>/dev/null || true
+# Only change ownership of specific directories we control, not volume mount points
+if [ -d "/home/developer/.local/share/opencode" ]; then
+    find /home/developer/.local/share/opencode -type f -exec chown developer:developer {} \; 2>/dev/null || true
+    find /home/developer/.local/share/opencode -type d -exec chown developer:developer {} \; 2>/dev/null || true
+fi
+
+if [ -d "/home/developer/.config/opencode" ]; then
+    find /home/developer/.config/opencode -type f -exec chown developer:developer {} \; 2>/dev/null || true
+    find /home/developer/.config/opencode -type d -exec chown developer:developer {} \; 2>/dev/null || true
+fi
 
 print_success "OpenCode configuration setup complete"
 
