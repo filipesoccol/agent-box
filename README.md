@@ -30,30 +30,21 @@ That's it! OpenCode Box will automatically:
 - Checkout to the current branch
 - Start OpenCode in the isolated environment
 
-## Features
-
-✅ **All AGENT.md Requirements Implemented:**
-- ✅ NPM global tool that works in any project directory
-- ✅ Builds Docker image automatically if it doesn't exist
-- ✅ Runs container instance with proper configuration
-- ✅ Copies GitHub user credentials (fails if not found)
-- ✅ Copies OpenCode config folders (`~/.local/share/opencode` and `~/.config/opencode`)
-- ✅ Clones the current repository inside container
-- ✅ Checks out to current branch from host machine
-
-✅ **Container Properties:**
-- ✅ Node.js 20 Alpine base image
-- ✅ OpenCode installed with `npm install -g opencode-ai`
-- ✅ Non-sudoer user (`developer`) created
-
 ## Requirements
 
 - Node.js (v16 or higher) and npm
 - Docker installed and running  
 - SSH agent with your Git credentials loaded
 - Git configured on your host machine
+- Opencode installed is optional but this will facilitate your authentication in containers
 
 ## Setup SSH Agent
+
+The SSH agent is required when:
+
+- Working with SSH-based Git URLs (like git@github.com:user/repo.git)
+- Accessing private repositories
+- Your Git remote is configured to use SSH authentication
 
 ```bash
 # Start SSH agent
@@ -74,3 +65,7 @@ opencodebox
 cd ~/my-projects/node-server
 opencodebox
 ```
+
+## TODO
+
+- Mount a specific local folder in container with same absolute path to be able to share images/documents with the AI.
