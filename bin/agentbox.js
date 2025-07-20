@@ -22,7 +22,7 @@ function validateRepositoryUrl(repoUrl) {
 
     // Remove any potential command injection characters
     const sanitized = repoUrl.trim();
-    
+
     // Check for dangerous characters that could be used for command injection
     const dangerousChars = /[;&|`$(){}[\]<>]/;
     if (dangerousChars.test(sanitized)) {
@@ -32,7 +32,7 @@ function validateRepositoryUrl(repoUrl) {
     // Validate URL format
     try {
         const parsedUrl = new URL(sanitized);
-        
+
         // Only allow specific protocols
         if (!['https:', 'ssh:', 'git:'].includes(parsedUrl.protocol)) {
             throw new Error('Only HTTPS, SSH, and Git protocols are allowed');
@@ -56,17 +56,17 @@ function validateRepositoryUrl(repoUrl) {
         // Try SSH format (git@github.com:user/repo.git)
         const sshPattern = /^git@([a-zA-Z0-9.-]+):([a-zA-Z0-9._/-]+)\.git$/;
         const sshMatch = sanitized.match(sshPattern);
-        
+
         if (sshMatch) {
             const hostname = sshMatch[1];
             const trustedSshHosts = ['github.com', 'gitlab.com', 'bitbucket.org'];
-            
+
             if (!trustedSshHosts.includes(hostname)) {
                 throw new Error(`Untrusted SSH hostname: ${hostname}`);
             }
             return sanitized;
         }
-        
+
         throw new Error('Invalid repository URL format');
     }
 }
@@ -77,7 +77,7 @@ function validateBranchName(branchName) {
     }
 
     const sanitized = branchName.trim();
-    
+
     // Check for dangerous characters and git-specific invalid characters
     const invalidChars = /[;&|`$(){}[\]<>~^:?*\\\s]/;
     if (invalidChars.test(sanitized)) {
@@ -103,7 +103,7 @@ function validateRepoName(repoName) {
     }
 
     const sanitized = repoName.trim();
-    
+
     // Only allow alphanumeric, hyphens, underscores, and dots
     const validPattern = /^[a-zA-Z0-9._-]+$/;
     if (!validPattern.test(sanitized)) {
@@ -125,7 +125,7 @@ function validateRepoName(repoName) {
 
 function checkRequirements() {
     log.info('Checking system requirements...');
-    
+
     // Check if Docker is installed and accessible
     try {
         const dockerVersion = execSync('docker --version', { encoding: 'utf8', timeout: 5000 });
@@ -269,9 +269,6 @@ function findOpenCodeConfigs() {
 
     log.info('Starting container with secure credential forwarding...');
 
-    // Find OpenCode configurations to mount directly
-    const configs = findOpenCodeConfigs();
-
     const dockerArgs = [
         'run', '-it', '--rm',  // --rm ensures automatic cleanup when container exits
         '--name', containerName,
@@ -279,16 +276,8 @@ function findOpenCodeConfigs() {
         '--security-opt', 'no-new-privileges:true',  // Prevent privilege escalation
         '--cap-drop', 'ALL',  // Drop all capabilities
         '--cap-add', 'DAC_OVERRIDE',  // Only add necessary capabilities for file access
-        '--read-only',  // Make root filesystem read-only
-        '--tmpfs', '/tmp:noexec,nosuid,size=100m',  // Secure tmp directory
-        '--tmpfs', '/var/tmp:noexec,nosuid,size=50m',
-        '--tmpfs', '/home/developer/.cache:noexec,nosuid,size=100m',
         // Network security
         '--network', 'bridge',  // Use default bridge network
-        // Resource limits
-        '--memory', '2g',  // Limit memory usage
-        '--cpus', '2.0',  // Limit CPU usage
-        '--pids-limit', '1024',  // Limit number of processes
         // SSH and Git configuration
         '-v', `${process.env.SSH_AUTH_SOCK}:${process.env.SSH_AUTH_SOCK}:ro`,  // Read-only SSH socket
         '-e', `SSH_AUTH_SOCK=${process.env.SSH_AUTH_SOCK}`,
@@ -299,26 +288,35 @@ function findOpenCodeConfigs() {
         '-e', `REPO_BRANCH=${repoInfo.branch}`
     ];
 
-    // Add OpenCode configuration volume mounts
-    if (configs.localShare) {
-        dockerArgs.push('-v', `${configs.localShare}:/home/developer/.local/share/opencode`);
+    // Find and copy OpenCode config files from host to container
+    const openCodeConfigs = findOpenCodeConfigs();
+
+    // Mount host config directories as read-only so they can be copied inside container
+    if (openCodeConfigs.localShare) {
+        dockerArgs.push('-v', `${openCodeConfigs.localShare}:/tmp/host-opencode-local-share:ro`);
+        dockerArgs.push('-e', 'HOST_OPENCODE_LOCAL_SHARE=/tmp/host-opencode-local-share');
+        log.info(`Will copy OpenCode local/share config from: ${openCodeConfigs.localShare}`);
     }
 
-    if (configs.config) {
-        dockerArgs.push('-v', `${configs.config}:/home/developer/.config/opencode`);
+    if (openCodeConfigs.config) {
+        dockerArgs.push('-v', `${openCodeConfigs.config}:/tmp/host-opencode-config:ro`);
+        dockerArgs.push('-e', 'HOST_OPENCODE_CONFIG=/tmp/host-opencode-config');
+        log.info(`Will copy OpenCode config from: ${openCodeConfigs.config}`);
     }
 
-    // If we have alternative config but no standard config, mount it to the standard location
-    if (configs.alternative && !configs.config) {
-        dockerArgs.push('-v', `${configs.alternative}:/home/developer/.config/opencode`);
+    if (openCodeConfigs.all.length === 0) {
+        log.warning('No OpenCode configurations found on host - container will start with default settings');
     }
 
-    // Also create a dedicated volume for OpenCode state that the developer user can write to
+    // Create dedicated writable volumes for container operation
     const stateVolume = `opencode-box-state-${timestamp}`;
+    const workspaceVolume = `opencode-box-workspace-${timestamp}`;
+
     dockerArgs.push('-v', `${stateVolume}:/home/developer/.local/state`);
+    dockerArgs.push('-v', `${workspaceVolume}:/workspace`);
 
     // Add the image and command
-    dockerArgs.push('opencode-box', '/app/wrapper.sh');
+    dockerArgs.push('opencode-box', '/app/entrypoint.sh');
 
     try {
         log.info(`Starting OpenCode environment...`);
@@ -336,13 +334,16 @@ function findOpenCodeConfigs() {
                 log.error(`OpenCode Box session ended with exit code ${code}`);
             }
 
-            // Clean up the state volume
-            try {
-                execSync(`docker volume rm ${stateVolume}`, { stdio: 'pipe', timeout: 10000 });
-                log.info('Cleaned up temporary volume');
-            } catch (cleanupError) {
-                log.warning(`Failed to clean up volume ${stateVolume}: ${cleanupError.message}`);
-            }
+            // Clean up the temporary volumes
+            const volumes = [stateVolume, workspaceVolume];
+            volumes.forEach(volume => {
+                try {
+                    execSync(`docker volume rm ${volume}`, { stdio: 'pipe', timeout: 10000 });
+                    log.info(`Cleaned up temporary volume: ${volume}`);
+                } catch (cleanupError) {
+                    log.warning(`Failed to clean up volume ${volume}: ${cleanupError.message}`);
+                }
+            });
         });
 
         // Handle process termination gracefully

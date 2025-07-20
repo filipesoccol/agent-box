@@ -7,8 +7,6 @@ OpenCode Box implements multiple security layers to protect your development env
 - **Read-only root filesystem**: Prevents malicious code from modifying system files
 - **Capability dropping**: Removes all unnecessary Linux capabilities
 - **No privilege escalation**: Prevents containers from gaining additional privileges
-- **Resource limits**: CPU, memory, and process limits prevent resource exhaustion
-- **Secure temporary directories**: `/tmp` and `/var/tmp` mounted with `noexec` and `nosuid`
 
 ## Network Security
 
@@ -43,7 +41,6 @@ OpenCode Box implements multiple security layers to protect your development env
 ## Process Security
 
 - **Signal handling**: Graceful shutdown on SIGINT/SIGTERM
-- **Process limits**: Maximum 1024 processes per container
 - **Automatic cleanup**: Containers and volumes automatically removed after use
 
 ## Monitoring and Logging

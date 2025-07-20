@@ -30,6 +30,18 @@ print_warning() {
 
 print_info "OpenCode Box container started"
 
+# Validate SSH socket exists and is accessible
+if [ -n "$SSH_AUTH_SOCK" ]; then
+    if [ ! -S "$SSH_AUTH_SOCK" ]; then
+        print_error "SSH_AUTH_SOCK is not a valid socket"
+        exit 1
+    fi
+    print_info "SSH agent is accessible"
+else
+    print_error "SSH_AUTH_SOCK not provided"
+    exit 1
+fi
+
 # Validate environment variables
 if [ -z "$REPO_URL" ] || [ -z "$REPO_NAME" ] || [ -z "$REPO_BRANCH" ]; then
     print_error "Missing required environment variables (REPO_URL, REPO_NAME, REPO_BRANCH)"
@@ -55,6 +67,36 @@ fi
 print_info "Repository URL: $REPO_URL"
 print_info "Repository Name: $REPO_NAME"
 print_info "Repository Branch: $REPO_BRANCH"
+
+# Copy OpenCode configuration files from host to developer home directory
+print_info "Setting up OpenCode configuration..."
+
+# Copy local/share/opencode config if provided
+if [ -n "$HOST_OPENCODE_LOCAL_SHARE" ] && [ -d "$HOST_OPENCODE_LOCAL_SHARE" ]; then
+    print_info "Copying OpenCode local/share config from host..."
+    cp -r "$HOST_OPENCODE_LOCAL_SHARE"/* /home/developer/.local/share/opencode/ 2>/dev/null || {
+        print_warning "Failed to copy some files from local/share config (this may be normal)"
+    }
+    print_success "OpenCode local/share config copied"
+else
+    print_info "No local/share OpenCode config found on host"
+fi
+
+# Copy .config/opencode config if provided  
+if [ -n "$HOST_OPENCODE_CONFIG" ] && [ -d "$HOST_OPENCODE_CONFIG" ]; then
+    print_info "Copying OpenCode config from host..."
+    cp -r "$HOST_OPENCODE_CONFIG"/* /home/developer/.config/opencode/ 2>/dev/null || {
+        print_warning "Failed to copy some files from config (this may be normal)"
+    }
+    print_success "OpenCode config copied"
+else
+    print_info "No .config OpenCode config found on host"
+fi
+
+# Ensure proper ownership of copied files
+chown -R developer:developer /home/developer/.local/share/opencode /home/developer/.config/opencode 2>/dev/null || true
+
+print_success "OpenCode configuration setup complete"
 
 # Change to workspace directory
 cd /workspace

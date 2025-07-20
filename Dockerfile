@@ -46,36 +46,18 @@ RUN npm install -g opencode-ai
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh && chown developer:developer /app/entrypoint.sh
 
+# Create OpenCode directories with proper ownership
+# Note: Configurations are managed at runtime via volumes, not copied during build
+RUN mkdir -p /home/developer/.local/share/opencode && \
+    mkdir -p /home/developer/.local/state && \
+    mkdir -p /home/developer/.config/opencode && \
+    chown -R developer:developer /home/developer/.local && \
+    chown -R developer:developer /home/developer/.config
+
 # Switch to non-root user
 USER developer
 
 # Set default working directory to workspace
 WORKDIR /workspace
-
-# Create a secure wrapper script with minimal privilege escalation
-USER root
-RUN echo '#!/bin/bash' > /app/wrapper.sh && \
-    echo 'set -e' >> /app/wrapper.sh && \
-    echo '# Validate SSH socket exists and is accessible' >> /app/wrapper.sh && \
-    echo 'if [ -n "$SSH_AUTH_SOCK" ]; then' >> /app/wrapper.sh && \
-    echo '    if [ ! -S "$SSH_AUTH_SOCK" ]; then' >> /app/wrapper.sh && \
-    echo '        echo "ERROR: SSH_AUTH_SOCK is not a valid socket"' >> /app/wrapper.sh && \
-    echo '        exit 1' >> /app/wrapper.sh && \
-    echo '    fi' >> /app/wrapper.sh && \
-    echo 'else' >> /app/wrapper.sh && \
-    echo '    echo "ERROR: SSH_AUTH_SOCK not provided"' >> /app/wrapper.sh && \
-    echo '    exit 1' >> /app/wrapper.sh && \
-    echo 'fi' >> /app/wrapper.sh && \
-    echo '# Create OpenCode directories with secure permissions' >> /app/wrapper.sh && \
-    echo 'mkdir -p /home/developer/.local/share/opencode' >> /app/wrapper.sh && \
-    echo 'mkdir -p /home/developer/.local/state' >> /app/wrapper.sh && \
-    echo 'mkdir -p /home/developer/.config/opencode' >> /app/wrapper.sh && \
-    echo 'chown -R developer:developer /home/developer/.local' >> /app/wrapper.sh && \
-    echo 'chown -R developer:developer /home/developer/.config' >> /app/wrapper.sh && \
-    echo 'chmod 700 /home/developer/.local/share/opencode' >> /app/wrapper.sh && \
-    echo 'chmod 700 /home/developer/.config/opencode' >> /app/wrapper.sh && \
-    echo '# Drop privileges permanently and run entrypoint' >> /app/wrapper.sh && \
-    echo 'exec runuser -u developer -- /app/entrypoint.sh' >> /app/wrapper.sh && \
-    chmod +x /app/wrapper.sh
 
 CMD ["tail", "-f", "/dev/null"]
