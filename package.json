@@ -1,0 +1,24 @@
+{
+  "name": "agentbox",
+  "version": "1.0.0",
+  "description": "A secure, lightweight Docker environment for AI-assisted development with OpenCode",
+  "bin": {
+    "agentbox": "./bin/agentbox.js"
+  },
+  "keywords": [
+    "docker",
+    "opencode",
+    "ai",
+    "development",
+    "container"
+  ],
+  "author": "Filipe Soccol",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/filipesoccol/agent-box.git"
+  }
+}
