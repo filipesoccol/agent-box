@@ -30,16 +30,108 @@ print_warning() {
 
 print_info "OpenCode Box container started"
 
-# Validate SSH socket exists and is accessible
-if [ -n "$SSH_AUTH_SOCK" ]; then
-    if [ ! -S "$SSH_AUTH_SOCK" ]; then
-        print_error "SSH_AUTH_SOCK is not a valid socket"
+# Validate and setup SSH access
+if [ -z "$SSH_AUTH_SOCK" ]; then
+    print_error "SSH_AUTH_SOCK environment variable not set"
+    exit 1
+fi
+
+if [ ! -S "$SSH_AUTH_SOCK" ]; then
+    print_error "SSH_AUTH_SOCK is not a valid socket: $SSH_AUTH_SOCK"
+    exit 1
+fi
+
+print_info "Setting up SSH access..."
+
+# Detect system type for platform-specific handling
+PLATFORM="unknown"
+if [ "$(uname)" = "Darwin" ]; then
+    PLATFORM="macos"
+elif [ "$(uname)" = "Linux" ]; then
+    PLATFORM="linux"
+fi
+
+# Fix SSH socket permissions if needed
+if [ ! -r "$SSH_AUTH_SOCK" ] || [ ! -w "$SSH_AUTH_SOCK" ]; then
+    # Try multiple approaches to fix SSH socket access
+    FIXED=false
+    
+    # Approach 1: Add user to socket group (with cross-platform stat)
+    SOCKET_GID=""
+    if stat -c %g "$SSH_AUTH_SOCK" >/dev/null 2>&1; then
+        # GNU stat (Linux)
+        SOCKET_GID=$(stat -c %g "$SSH_AUTH_SOCK" 2>/dev/null)
+    elif stat -f %g "$SSH_AUTH_SOCK" >/dev/null 2>&1; then
+        # BSD stat (macOS)
+        SOCKET_GID=$(stat -f %g "$SSH_AUTH_SOCK" 2>/dev/null)
+    fi
+    
+    if [ -n "$SOCKET_GID" ] && [ "$SOCKET_GID" != "0" ]; then
+        if sudo usermod -a -G "$SOCKET_GID" node 2>/dev/null; then
+            # Try to refresh group membership (platform-specific)
+            if [ "$PLATFORM" = "linux" ]; then
+                newgrp "$SOCKET_GID" 2>/dev/null || true
+            fi
+            FIXED=true
+        fi
+    fi
+    
+    # Approach 2: Change socket permissions
+    if [ "$FIXED" = false ]; then
+        if sudo chmod 666 "$SSH_AUTH_SOCK" 2>/dev/null; then
+            FIXED=true
+        fi
+    fi
+    
+    # Approach 3: Copy SSH keys from host (improved cross-platform)
+    if [ "$FIXED" = false ] && [ -d "/host-ssh" ]; then
+        # Copy private keys
+        for key_file in id_rsa id_ed25519 id_ecdsa id_dsa; do
+            if [ -f "/host-ssh/$key_file" ]; then
+                cp "/host-ssh/$key_file" /home/node/.ssh/ 2>/dev/null || true
+                chmod 600 "/home/node/.ssh/$key_file" 2>/dev/null || true
+                FIXED=true
+            fi
+        done
+        
+        # Copy public keys
+        for pub_file in id_rsa.pub id_ed25519.pub id_ecdsa.pub id_dsa.pub; do
+            if [ -f "/host-ssh/$pub_file" ]; then
+                cp "/host-ssh/$pub_file" /home/node/.ssh/ 2>/dev/null || true
+                chmod 644 "/home/node/.ssh/$pub_file" 2>/dev/null || true
+            fi
+        done
+        
+        # Copy known_hosts and config if they exist
+        for config_file in known_hosts config; do
+            if [ -f "/host-ssh/$config_file" ]; then
+                cp "/host-ssh/$config_file" /home/node/.ssh/ 2>/dev/null || true
+                chmod 644 "/home/node/.ssh/$config_file" 2>/dev/null || true
+            fi
+        done
+    fi
+    
+    if [ "$FIXED" = false ]; then
+        print_error "Could not establish SSH access"
+        print_info "Please ensure SSH agent is running and keys are loaded on the host"
         exit 1
     fi
-    print_info "SSH agent is accessible"
-else
-    print_error "SSH_AUTH_SOCK not provided"
+fi
+
+# Test SSH connection to GitHub
+print_info "Verifying GitHub access..."
+SSH_OUTPUT=$(timeout 10 ssh -T git@github.com -o ConnectTimeout=5 -o StrictHostKeyChecking=yes -o BatchMode=yes 2>&1 || echo "SSH_FAILED")
+
+if echo "$SSH_OUTPUT" | grep -q "successfully authenticated"; then
+    print_success "GitHub SSH access verified"
+elif echo "$SSH_OUTPUT" | grep -q "Permission denied"; then
+    print_error "GitHub SSH access failed - Permission denied"
     exit 1
+elif echo "$SSH_OUTPUT" | grep -q "SSH_FAILED"; then
+    print_error "GitHub SSH connection failed"
+    exit 1
+else
+    print_warning "SSH test returned unexpected output, proceeding anyway"
 fi
 
 # Validate environment variables
@@ -68,72 +160,58 @@ print_info "Repository URL: $REPO_URL"
 print_info "Repository Name: $REPO_NAME"
 print_info "Repository Branch: $REPO_BRANCH"
 
-# Copy OpenCode configuration files from host to developer home directory
+# Setup OpenCode configuration
 print_info "Setting up OpenCode configuration..."
+
+CONFIG_COPIED=false
 
 # Copy local/share/opencode config if provided
 if [ -n "$HOST_OPENCODE_LOCAL_SHARE" ] && [ -d "$HOST_OPENCODE_LOCAL_SHARE" ]; then
-    print_info "Copying OpenCode local/share config from host..."
-    cp -r "$HOST_OPENCODE_LOCAL_SHARE"/* /home/developer/.local/share/opencode/ 2>/dev/null || {
-        print_warning "Failed to copy some files from local/share config (this may be normal)"
-    }
-    print_success "OpenCode local/share config copied"
-else
-    print_info "No local/share OpenCode config found on host"
+    cp -r "$HOST_OPENCODE_LOCAL_SHARE"/* /home/node/.local/share/opencode/ 2>/dev/null || true
+    CONFIG_COPIED=true
 fi
 
 # Copy .config/opencode config if provided  
 if [ -n "$HOST_OPENCODE_CONFIG" ] && [ -d "$HOST_OPENCODE_CONFIG" ]; then
-    print_info "Copying OpenCode config from host..."
-    cp -r "$HOST_OPENCODE_CONFIG"/* /home/developer/.config/opencode/ 2>/dev/null || {
-        print_warning "Failed to copy some files from config (this may be normal)"
-    }
-    print_success "OpenCode config copied"
-else
-    print_info "No .config OpenCode config found on host"
+    cp -r "$HOST_OPENCODE_CONFIG"/* /home/node/.config/opencode/ 2>/dev/null || true
+    CONFIG_COPIED=true
 fi
 
 # Ensure proper ownership of copied files
-# Only change ownership of specific directories we control, not volume mount points
-if [ -d "/home/developer/.local/share/opencode" ]; then
-    find /home/developer/.local/share/opencode -type f -exec chown developer:developer {} \; 2>/dev/null || true
-    find /home/developer/.local/share/opencode -type d -exec chown developer:developer {} \; 2>/dev/null || true
+if [ -d "/home/node/.local/share/opencode" ]; then
+    find /home/node/.local/share/opencode -exec chown node:node {} \; 2>/dev/null || true
 fi
 
-if [ -d "/home/developer/.config/opencode" ]; then
-    find /home/developer/.config/opencode -type f -exec chown developer:developer {} \; 2>/dev/null || true
-    find /home/developer/.config/opencode -type d -exec chown developer:developer {} \; 2>/dev/null || true
+if [ -d "/home/node/.config/opencode" ]; then
+    find /home/node/.config/opencode -exec chown node:node {} \; 2>/dev/null || true
 fi
 
-print_success "OpenCode configuration setup complete"
+if [ "$CONFIG_COPIED" = true ]; then
+    print_success "OpenCode configuration imported from host"
+else
+    print_info "Using default OpenCode configuration"
+fi
 
-# Change to workspace directory
+# Clone and setup repository
 cd /workspace
 
-# Clone the repository with timeout and depth limit for security
-print_info "Cloning repository: $REPO_NAME"
+print_info "Cloning repository: $REPO_NAME ($REPO_BRANCH)"
 if [ -d "$REPO_NAME" ]; then
-    print_warning "Directory $REPO_NAME already exists, removing it..."
     rm -rf "$REPO_NAME"
 fi
 
-# Use timeout and shallow clone for security
+# Clone repository with timeout
 timeout 300 git clone --depth 1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_NAME" || {
-    print_error "Failed to clone repository (timeout or error)"
+    print_error "Failed to clone repository"
     exit 1
 }
 
-print_success "Repository cloned successfully"
-
-# Change to the repository directory
 cd "$REPO_NAME"
-print_info "Working in: $(pwd)"
+print_success "Repository ready: $(pwd)"
 
-# Verify we're on the correct branch (shallow clone should handle this)
+# Verify branch (shallow clone should handle this automatically)
 CURRENT_BRANCH=$(git branch --show-current)
 if [ "$CURRENT_BRANCH" != "$REPO_BRANCH" ]; then
-    print_warning "Current branch ($CURRENT_BRANCH) differs from expected ($REPO_BRANCH)"
-    print_info "Attempting to switch to branch: $REPO_BRANCH"
     timeout 60 git checkout "$REPO_BRANCH" 2>/dev/null || timeout 60 git checkout -b "$REPO_BRANCH" || {
         print_error "Failed to checkout branch $REPO_BRANCH"
         exit 1

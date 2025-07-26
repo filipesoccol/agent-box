@@ -12,7 +12,7 @@
     "development",
     "container"
   ],
-  "author": "Filipe Soccol",
+  "author": "filipesoccol <filipe.soccol@gmail.com>",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0"
@@ -20,5 +20,11 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/filipesoccol/opencode-box.git"
-  }
+  },
+  "files": [
+    "bin/",
+    "Dockerfile",
+    "entrypoint.sh",
+    "README.md"
+  ]
 }

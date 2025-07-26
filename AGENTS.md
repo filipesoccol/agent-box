@@ -9,6 +9,11 @@ I want to use some kind of Tool for terminal. It would be coded in JS, the idea 
 5) Grab project folder github config path and clone the repo inside the container
 6) Checkout to the current branch from the host machine inside the project in the container.
 
+OBSERVATIONS: 
+
+- the credentials must be forwarded sucessfully with github host machine user.
+
+
 The intent is to have some properties builded in the container:
 
 - Install node:20-alpine in there

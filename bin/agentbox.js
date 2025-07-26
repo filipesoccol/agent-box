@@ -157,7 +157,11 @@ function checkRequirements() {
     // Check SSH agent or credentials
     if (!process.env.SSH_AUTH_SOCK) {
         log.error('SSH agent not found. Please start ssh-agent and add your SSH keys.');
-        log.info('Run: eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_rsa');
+        if (process.platform === 'darwin') {
+            log.info('On macOS, try: eval "$(ssh-agent -s)" && ssh-add --apple-use-keychain ~/.ssh/id_rsa');
+        } else {
+            log.info('Run: eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_rsa');
+        }
         process.exit(1);
     }
 
@@ -169,6 +173,10 @@ function checkRequirements() {
         log.info('SSH agent is accessible');
     } catch (error) {
         log.error(`SSH agent socket is not accessible: ${error.message}`);
+        if (process.platform === 'darwin') {
+            log.info('On macOS, SSH agent issues are common. Try restarting your terminal or running:');
+            log.info('eval "$(ssh-agent -s)" && ssh-add --apple-use-keychain');
+        }
         process.exit(1);
     }
 
@@ -276,17 +284,32 @@ function findOpenCodeConfigs() {
         '--security-opt', 'no-new-privileges:true',  // Prevent privilege escalation
         '--cap-drop', 'ALL',  // Drop all capabilities
         '--cap-add', 'DAC_OVERRIDE',  // Only add necessary capabilities for file access
+        '--cap-add', 'SETGID',  // Add capability for SSH socket access
+        '--cap-add', 'SETUID',  // Add capability for user switching if needed
+        '--cap-add', 'CHOWN',   // Add capability for changing file ownership
         // Network security
         '--network', 'bridge',  // Use default bridge network
-        // SSH and Git configuration
-        '-v', `${process.env.SSH_AUTH_SOCK}:${process.env.SSH_AUTH_SOCK}:ro`,  // Read-only SSH socket
-        '-e', `SSH_AUTH_SOCK=${process.env.SSH_AUTH_SOCK}`,
-        '-v', `${os.homedir()}/.gitconfig:/home/developer/.gitconfig:ro`,
+        // SSH and Git configuration - mount SSH socket and directory
+        '-v', `${process.env.SSH_AUTH_SOCK}:/ssh-agent`,  // Mount to a predictable path
+        '-e', 'SSH_AUTH_SOCK=/ssh-agent',  // Set the socket path inside container
         // Environment variables (validated inputs)
         '-e', `REPO_URL=${repoInfo.url}`,
         '-e', `REPO_NAME=${repoInfo.name}`,
         '-e', `REPO_BRANCH=${repoInfo.branch}`
     ];
+
+    // Conditionally mount SSH directory if it exists
+    const sshDir = path.join(os.homedir(), '.ssh');
+    if (fs.existsSync(sshDir)) {
+        dockerArgs.push('-v', `${sshDir}:/host-ssh:ro`);
+        log.info('Mounting SSH directory for fallback key access');
+    }
+
+    // Conditionally mount git config if it exists
+    const gitConfig = path.join(os.homedir(), '.gitconfig');
+    if (fs.existsSync(gitConfig)) {
+        dockerArgs.push('-v', `${gitConfig}:/home/node/.gitconfig:ro`);
+    }
 
     // Find and copy OpenCode config files from host to container
     const openCodeConfigs = findOpenCodeConfigs();
@@ -312,7 +335,7 @@ function findOpenCodeConfigs() {
     const stateVolume = `opencode-box-state-${timestamp}`;
     const workspaceVolume = `opencode-box-workspace-${timestamp}`;
 
-    dockerArgs.push('-v', `${stateVolume}:/home/developer/.local/state`);
+    dockerArgs.push('-v', `${stateVolume}:/home/node/.local/state`);
     dockerArgs.push('-v', `${workspaceVolume}:/workspace`);
 
     // Add the image and command
