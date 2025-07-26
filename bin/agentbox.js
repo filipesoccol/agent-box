@@ -162,6 +162,7 @@ function checkRequirements() {
         } else {
             log.info('Run: eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_rsa');
         }
+        log.info('Verify keys are loaded with: ssh-add -l');
         process.exit(1);
     }
 
@@ -176,7 +177,29 @@ function checkRequirements() {
         if (process.platform === 'darwin') {
             log.info('On macOS, SSH agent issues are common. Try restarting your terminal or running:');
             log.info('eval "$(ssh-agent -s)" && ssh-add --apple-use-keychain');
+        } else {
+            log.info('Try: eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_rsa');
         }
+        log.info('Verify keys are loaded with: ssh-add -l');
+        log.info('Test GitHub access with: ssh -T git@github.com');
+        process.exit(1);
+    }
+
+    // Verify SSH agent has keys loaded
+    try {
+        const sshKeys = execSync('ssh-add -l', { encoding: 'utf8', timeout: 5000 });
+        if (sshKeys.includes('no identities') || sshKeys.trim() === '') {
+            throw new Error('No SSH keys loaded in agent');
+        }
+        log.info('SSH keys are loaded in agent');
+    } catch (error) {
+        log.error('SSH agent has no keys loaded');
+        if (process.platform === 'darwin') {
+            log.info('Add keys with: ssh-add --apple-use-keychain ~/.ssh/id_rsa');
+        } else {
+            log.info('Add keys with: ssh-add ~/.ssh/id_rsa');
+        }
+        log.info('Verify with: ssh-add -l');
         process.exit(1);
     }
 
@@ -298,12 +321,8 @@ function findOpenCodeConfigs() {
         '-e', `REPO_BRANCH=${repoInfo.branch}`
     ];
 
-    // Conditionally mount SSH directory if it exists
-    const sshDir = path.join(os.homedir(), '.ssh');
-    if (fs.existsSync(sshDir)) {
-        dockerArgs.push('-v', `${sshDir}:/host-ssh:ro`);
-        log.info('Mounting SSH directory for fallback key access');
-    }
+    // SSH access is handled via SSH agent forwarding only
+    // No SSH directory mounting for security reasons
 
     // Conditionally mount git config if it exists
     const gitConfig = path.join(os.homedir(), '.gitconfig');

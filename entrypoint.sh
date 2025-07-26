@@ -83,37 +83,16 @@ if [ ! -r "$SSH_AUTH_SOCK" ] || [ ! -w "$SSH_AUTH_SOCK" ]; then
         fi
     fi
     
-    # Approach 3: Copy SSH keys from host (improved cross-platform)
-    if [ "$FIXED" = false ] && [ -d "/host-ssh" ]; then
-        # Copy private keys
-        for key_file in id_rsa id_ed25519 id_ecdsa id_dsa; do
-            if [ -f "/host-ssh/$key_file" ]; then
-                cp "/host-ssh/$key_file" /home/node/.ssh/ 2>/dev/null || true
-                chmod 600 "/home/node/.ssh/$key_file" 2>/dev/null || true
-                FIXED=true
-            fi
-        done
-        
-        # Copy public keys
-        for pub_file in id_rsa.pub id_ed25519.pub id_ecdsa.pub id_dsa.pub; do
-            if [ -f "/host-ssh/$pub_file" ]; then
-                cp "/host-ssh/$pub_file" /home/node/.ssh/ 2>/dev/null || true
-                chmod 644 "/home/node/.ssh/$pub_file" 2>/dev/null || true
-            fi
-        done
-        
-        # Copy known_hosts and config if they exist
-        for config_file in known_hosts config; do
-            if [ -f "/host-ssh/$config_file" ]; then
-                cp "/host-ssh/$config_file" /home/node/.ssh/ 2>/dev/null || true
-                chmod 644 "/home/node/.ssh/$config_file" 2>/dev/null || true
-            fi
-        done
-    fi
-    
     if [ "$FIXED" = false ]; then
-        print_error "Could not establish SSH access"
+        print_error "Could not establish SSH access via SSH agent forwarding"
+        print_error "SSH agent socket is not accessible: $SSH_AUTH_SOCK"
         print_info "Please ensure SSH agent is running and keys are loaded on the host"
+        if [ "$PLATFORM" = "macos" ]; then
+            print_info "On macOS, try: eval \"\$(ssh-agent -s)\" && ssh-add --apple-use-keychain"
+        else
+            print_info "Try: eval \"\$(ssh-agent -s)\" && ssh-add ~/.ssh/id_rsa"
+        fi
+        print_info "Verify with: ssh-add -l"
         exit 1
     fi
 fi

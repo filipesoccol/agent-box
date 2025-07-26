@@ -1,71 +1,165 @@
-# OPENCODE BOX
+# opencode-box
 
-A secure, lightweight Docker environment for AI-assisted development with OpenCode. This NPM tool provides an isolated environment where you can clone repositories and work with OpenCode while keeping your main system secure.
+**A secure, containerized development environment for AI-assisted coding with OpenCode**
 
-## Installation
+OpenCode Box provides an isolated Docker environment where you can safely work with AI-powered development tools while keeping your host system secure. It automatically sets up a complete development environment with your project, credentials, and OpenCode configurations.
 
-Install OpenCode Box globally from NPM:
+## 🚀 Installation
+
+Install OpenCode Box globally via NPM:
 
 ```bash
 npm install -g opencode-box
 ```
 
-## Quick Start
+## ⚡ Quick Start
 
-1. **Navigate to any git repository:**
+1. **Navigate to any Git repository:**
    ```bash
    cd /path/to/your/git/project
    ```
 
-2. **Run OpenCode Box:**
+2. **Launch OpenCode Box:**
    ```bash
    opencodebox
    ```
 
-That's it! OpenCode Box will automatically:
-- Build the Docker image (if not already built)
-- Copy your SSH credentials securely to the container
-- Copy OpenCode configurations from `~/.local/share/opencode` and `~/.config/opencode`
-- Clone the current repository inside the container
-- Checkout to the current branch
-- Start OpenCode in the isolated environment
+**That's it!** OpenCode Box will automatically:
+- 🐳 Build the Docker image (if not already built)
+- 🔐 Securely forward your SSH/Git credentials to the container
+- ⚙️ Copy OpenCode configurations (`~/.local/share/opencode` and `~/.config/opencode`)
+- 📂 Clone the current repository inside the container
+- 🌿 Checkout to the current branch from your host machine
+- 🤖 Start OpenCode in the isolated environment
 
-## Requirements
+## 📋 System Requirements
 
-- Node.js (v16 or higher) and npm
-- Docker installed and running  
-- SSH agent with your Git credentials loaded
-- Git configured on your host machine
-- Opencode installed is optional but this will facilitate your authentication in containers
+### Required Dependencies
+- **Node.js**: v16.0.0 or higher
+- **npm**: v7.0.0 or higher (comes with Node.js)
+- **Docker**: v20.10.0 or higher (installed and running)
+- **Git**: v2.25.0 or higher (configured on host machine)
 
-## Setup SSH Agent
+### Authentication Requirements
+- **SSH Agent**: Must be running with Git credentials loaded
+- **Git Configuration**: User name and email configured globally
+- **Repository Access**: Valid SSH key or credentials for the target repository
 
-The SSH agent is required when:
+### Optional but Recommended
+- **OpenCode CLI**: Pre-installed on host machine for easier authentication setup
+- **Docker Compose**: v2.0.0 or higher (for advanced configurations)
 
-- Working with SSH-based Git URLs (like git@github.com:user/repo.git)
-- Accessing private repositories
-- Your Git remote is configured to use SSH authentication
+## 🔧 Prerequisites Setup
 
+### SSH Agent Configuration
+
+SSH agent is **required** for:
+- 🔒 SSH-based Git URLs (`git@github.com:user/repo.git`)
+- 🏠 Private repository access
+- 🔑 SSH-authenticated Git operations
+
+**Setup SSH Agent:**
 ```bash
 # Start SSH agent
 eval "$(ssh-agent -s)"
 
-# Add your SSH key
-ssh-add ~/.ssh/id_rsa  # or your specific key file
+# Add your SSH key (replace with your key path)
+ssh-add ~/.ssh/id_rsa
+
+# Verify key is loaded
+ssh-add -l
 ```
 
-## Usage Examples
+### Git Configuration Verification
 
+Ensure Git is properly configured:
 ```bash
-# Navigate to any git project and start OpenCode Box
+# Check current configuration
+git config --global user.name
+git config --global user.email
+
+# Set if not configured
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+```
+
+### Docker Setup Verification
+
+Verify Docker is running:
+```bash
+# Check Docker status
+docker --version
+docker info
+
+# Test Docker functionality
+docker run hello-world
+```
+
+## 💡 Usage Examples
+
+### Basic Usage
+```bash
+# Navigate to any Git project
 cd ~/my-projects/react-app
 opencodebox
+```
 
-# Works with any git repository
-cd ~/my-projects/node-server
+### Advanced Scenarios
+```bash
+# Works with monorepos
+cd ~/my-projects/large-monorepo
+opencodebox
+
+# Works with private repositories
+cd ~/my-projects/private-enterprise-app
+opencodebox
+
+# Works with different Git providers
+cd ~/my-projects/gitlab-project
 opencodebox
 ```
 
-## TODO
+## 🏗️ Container Architecture
 
-- Mount a specific local folder in container with same absolute path to be able to share images/documents with the AI.
+The OpenCode Box container includes:
+- **Base Image**: `node:20-alpine` (lightweight and secure)
+- **OpenCode CLI**: Globally installed via `npm install -g opencode-ai`
+- **Non-root User**: Secure user environment without sudo privileges
+- **Isolated Network**: Container networking for security
+- **Volume Mounts**: Project files and configuration directories
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+**SSH Key Not Found:**
+```bash
+# Ensure SSH agent is running and key is added
+ssh-add -l
+```
+
+**Docker Permission Denied:**
+```bash
+# Add user to docker group (Linux)
+sudo usermod -aG docker $USER
+# Then logout and login again
+```
+
+**Git Authentication Failed:**
+```bash
+# Test SSH connection to GitHub
+ssh -T git@github.com
+```
+
+**OpenCode Configuration Missing:**
+```bash
+# Verify OpenCode config exists
+ls -la ~/.config/opencode
+ls -la ~/.local/share/opencode
+```
+
+## 🚧 Roadmap
+
+- [ ] **Volume Mounting**: Mount specific local folders with absolute paths for document/image sharing
+- [ ] **Multi-Platform Support**: Enhanced support for Windows and Linux environments
+- [ ] **Performance Optimization**: Faster container startup and build times
